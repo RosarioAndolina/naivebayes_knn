@@ -88,7 +88,7 @@ prior_prob <- function(train,test,class,k)
 
 ####### build model ##################
 #______________________________________________________________________
-nbknn <- function(train,test,class,k,pdf="dnorm")
+nbknn <- function(train,test,class,k=NULL,pdf="dnorm")
 {
   require(stats)
   # sanity cheks
@@ -110,6 +110,9 @@ nbknn <- function(train,test,class,k,pdf="dnorm")
   # check if class is a factor
   if (! is.factor(class))
     stop("class must be a factor")
+  # check if k is setted
+  if (is.null(k))
+    k <- round(sqrt(nrow(train)))
   # get names of features
   fea_names <- names(train)
   # get class levels
