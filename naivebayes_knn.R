@@ -12,9 +12,9 @@ dsnorm <- function(x,mu=0,sigma=1,shape=1)
   2*dnorm(x)*pnorm(shape*x)/sigma
 }
 
-######## dsnorm_params ###############
+######## dsnorm starting params ###############
 #______________________________________________________________________
-dsnorm_params <- function(x,type = "vector")
+dsnorm_start_params <- function(x,type = "vector")
 {
   N <- length(x)
   # second central moment
@@ -45,6 +45,12 @@ dsnorm_params <- function(x,type = "vector")
     list(mu=mu,sigma=sigma,shape=shape)
   else if (type == "vector")
     c(mu=mu,sigma=sigma,shape=shape)
+}
+
+dsnorm_log_likelihood <- function(par,x)
+{
+  #scale <- 1.e1
+  -sum(log(dsnorm(x,par["mu"],par["sigma"],par["shape"])))
 }
 
 ########## prior_prob ##################
@@ -82,7 +88,7 @@ prior_prob <- function(train,test,class,k)
 
 ####### build model ##################
 #______________________________________________________________________
-nbknn <- function(train,test,class,k)
+nbknn <- function(train,test,class,k,pdf="dnorm")
 {
   require(stats)
   # sanity cheks
@@ -120,7 +126,18 @@ nbknn <- function(train,test,class,k)
     {
       data <- train[,f][class == l]
       # get pdf parameters for likelihood computation
-      params <- c(params,list(c(mu=mean(data),sigma=sd(data))))
+      # check pdf argument
+      if (pdf == "dsnorm")
+      {
+        # starting parameters
+        spar <- dsnorm_start_params(data)
+        # maximum log likelihood
+        fit <- optim(par = spar,fn = dsnorm_log_likelihood,x=data)
+        # store parameters
+        params <- c(params,list(fit$par))
+      }
+      else if (pdf == "dnorm")
+        params <- c(params,list(c(mu=mean(data),sigma=sd(data))))
     }
     names(params) <- fea_names
     # store pdf params in a list named with levels name
@@ -131,10 +148,12 @@ nbknn <- function(train,test,class,k)
   # a list with:
   # train data feature names
   # class levels names
+  # pdf name
   # all parameters for each level
   # prior probability for each level
   model <- structure(list(fnames=fea_names,
                        clevels=clevels,
+                       pdf=pdf,
                        pdfPar=pdf_par,
                        priProbs=pp), class=c("nbknn","list"))
   model
@@ -175,7 +194,9 @@ predict.nbknn <- function(model,test,type="class",laplace=0)
       # p(Fi|level) for Fi features
       # multiply all p (likelihoods)
       pdf_par <- lparams[[f]]
-      #li <- li * (dsnorm(test[,f],pdf_par["mu"],pdf_par["sigma"],pdf_par["shape"])+laplace)
+      if (model$pdf == "dsnorm")
+        li <- li * (dsnorm(test[,f],pdf_par["mu"],pdf_par["sigma"],pdf_par["shape"])+laplace)
+      else if (model$pdf == "dnorm")
       li <- li * (dnorm(test[,f],pdf_par["mu"],pdf_par["sigma"])+laplace)
     }
     # posterior probability p(level|Fi)
