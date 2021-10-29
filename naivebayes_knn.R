@@ -57,7 +57,6 @@ dsnorm_log_likelihood <- function(par,x)
 #______________________________________________________________________
 prior_prob <- function(train,test,class,k)
 {
-  class <- as.factor(class)
   lev <- levels(class)
   # initialize pp list
   pp <- list()
